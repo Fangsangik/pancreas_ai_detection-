@@ -1,0 +1,21 @@
+# Patient data
+data/
+outputs/
+results/
+*.dcm
+*.nii
+*.nii.gz
+*.csv
+*.json
+
+# Logs
+*.log
+segmentation/lightning_logs/
+autoencoder_training.log
+
+# Environment and cache
+.venv/
+.pytest_cache/
+.idea/
+__pycache__/
+.DS_Store

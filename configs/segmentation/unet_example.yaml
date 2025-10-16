@@ -1,0 +1,31 @@
+# UNet 세그멘테이션 모델 설정 예제
+
+model:
+  in_channels: 1
+  num_classes: 3  # 배경, 췌장, 종양
+  features: [32, 64, 128, 256]
+
+data:
+  data_root: "data"
+  data_list_file: "data/manifests/pancreas_ct_manifest.json"
+  batch_size: 1 # 메모리를 위해 1로 줄임
+  num_workers: 4
+
+training:
+  learning_rate: 0.0001
+  max_epochs: 5
+  optimizer: "Adam"
+  loss_function: "DiceCELoss"  # Dice + Cross Entropy
+
+  # Learning rate scheduler
+  lr_scheduler:
+    name: "ReduceLROnPlateau"
+    mode: "max"
+    factor: 0.5
+    patience: 10
+
+trainer:
+  # PyTorch Lightning Trainer 추가 설정
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  # precision: 16  # Mixed precision training - MPS에서 문제 발생하므로 비활성화

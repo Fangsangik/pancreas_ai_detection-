@@ -1,0 +1,23 @@
+# ResNet3D Classification Training Configuration
+# Can train on raw CT or segmentation masks
+
+model:
+  in_channels: 1  # 1 for CT, 3 for multi-channel seg masks
+  num_classes: 2  # normal vs cancer
+  layers: [2, 2, 2, 2]
+  base_channels: 64
+
+data:
+  data_root: "/Users/hwangsang-ik/PycharmProjects/pancreas cancer detection/data/nifti"
+  data_list_file: "/Users/hwangsang-ik/PycharmProjects/pancreas cancer detection/data/manifests/pancreas_ct_train.json"
+  batch_size: 4
+  num_workers: 4
+
+training:
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  max_epochs: 50
+  num_classes: 2
+
+trainer:
+  precision: 16

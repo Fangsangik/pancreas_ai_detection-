@@ -1,0 +1,24 @@
+# UNet Segmentation Training Configuration
+# Model 1 of 5 segmentation CNNs
+
+model:
+  in_channels: 1
+  num_classes: 3  # background, pancreas, tumor
+  base_channels: 32
+  depth: 4
+
+data:
+  data_root: "/Users/hwangsang-ik/PycharmProjects/pancreas cancer detection/data/nifti"
+  data_list_file: "/Users/hwangsang-ik/PycharmProjects/pancreas cancer detection/data/manifests/pancreas_ct_train.json"
+  batch_size: 2
+  num_workers: 4
+  num_classes: 3
+
+training:
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  max_epochs: 100
+
+trainer:
+  strategy: "ddp"  # Use distributed training if multiple GPUs
+  precision: 16    # Use mixed precision
