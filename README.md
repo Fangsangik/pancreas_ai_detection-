@@ -1,16 +1,287 @@
-# 췌장암 진단 - End-to-End 파이프라인
+# Pancreatic Cancer Early Detection AI - Stage 1 Detection System
 
-**5개의 독립적인 세그멘테이션 CNN**과 **앙상블 분류 CNN**을 사용한 모듈화되고 유연하며 재현 가능한 췌장암 진단 프레임워크입니다.
+**AI system for early detection of pancreatic cancer in CT scans performed for other purposes**
 
-## 📌 주요 특징
+Our goal is to detect Stage 1-2 pancreatic cancer before symptoms appear by identifying subtle changes in normal pancreatic tissue.
 
-- **완전한 모듈화**: 각 모듈(세그멘테이션, 분류, 파이프라인)이 독립적으로 실행 가능
-- **높은 유연성**: 모델 교체, 새로운 아키텍처 추가, 워크플로우 수정이 쉬움
-- **쉬운 유지보수**: 명확한 관심사 분리와 잘 정의된 인터페이스
-- **재현성 보장**: 설정 추적 및 재현 가능한 결과를 위한 내장 도구
-- **독립 실행**: 각 컴포넌트를 개별적으로 학습하고 테스트하거나 전체 파이프라인 사용 가능
+---
 
-## 🏗️ 프로젝트 구조
+## 🏥 Clinical Background
+
+### Why is Stage 1 Early Detection Critical?
+
+Pancreatic cancer survival rates vary dramatically based on the stage at diagnosis:
+
+| Stage | 5-Year Survival | Detection on CT |
+|-------|----------------|-----------------|
+| **Stage 1** (T1N0M0, <2cm) | **~80%** | Nearly impossible ❌ |
+| **Stage 2** (T2-3, 2-4cm) | ~30% | Very difficult |
+| **Stage 3-4** (locally advanced/metastatic) | **<5%** | **Most cases detected here** ✓ |
+
+**Reality:** When pancreatic cancer is detected on CT, it's usually already Stage 3-4.
+
+### Why is Early Detection on CT So Difficult?
+
+1. **Contrast Issues**
+   - Small tumors (<1-2cm) have minimal density difference from normal pancreatic tissue
+   - Standard abdominal CT protocols are not optimized for pancreatic imaging
+
+2. **Absence of Symptoms**
+   - Stage 1-2: Nearly asymptomatic → No reason to get scanned
+   - **Jaundice**: Only appears when bile duct is obstructed → Already Stage 3-4
+
+3. **Screening Limitations**
+   - Health checkups: Mainly abdominal ultrasound (pancreas visualization rate: 50-70%)
+   - CT in health checkups: **<5% of cases**
+   - CT is usually performed "because of symptoms" → Already too late
+
+### When Are CTs Actually Performed?
+
+CTs are primarily performed in these situations rather than routine health checkups:
+
+1. **Outpatient/Emergency Room Visits for Symptoms**
+   - Abdominal pain, indigestion, weight loss, jaundice
+   - Evaluation of other organs (liver, gallbladder, GI tract)
+   - Pancreas is only observed incidentally
+
+2. **Regular Follow-up for Other Diseases**
+   - Liver disease, kidney disease, post-colorectal cancer surgery follow-up
+   - Annual CTs, but pancreas not carefully examined
+
+3. **Trauma/Pre-surgical Evaluation**
+   - Pancreas is not the primary focus
+
+**💡 Key Insight:** Over **5 million abdominal CTs** are performed annually in South Korea alone, but the pancreas is "casually glanced at" in most cases. This is where AI creates opportunity.
+
+---
+
+## 🎯 Project Goals and Value
+
+### Opportunistic Pancreatic Cancer Screening
+
+**"Automatically analyze the pancreas in CT scans performed for other purposes"**
+
+#### Scenario A: Incidental Finding During Symptom Evaluation
+```
+Patient: "I have indigestion and bloating"
+Doctor: Orders abdominal CT (for stomach/gallbladder evaluation)
+Radiologist: "No significant findings" (pancreas briefly reviewed)
+
+→ AI Applied ⭐
+   "Subtle texture heterogeneity detected in pancreatic body"
+   "Confidence: 68%, recommend pancreas-dedicated CT or MRI"
+
+→ Additional workup → Stage 1 (1.5cm) detected
+→ Surgical resection possible, chance for cure
+```
+
+#### Scenario B: Early Detection During Regular Follow-up
+```
+Patient: Liver cirrhosis follow-up (CT every 6 months)
+
+→ AI's Longitudinal Analysis ⭐
+   "Analysis of 3 consecutive CTs"
+   "Progressive texture change in pancreatic head region"
+   "No size change, but attenuation pattern change detected"
+
+→ Dedicated pancreas protocol CT
+→ Stage 1 detected (before symptoms)
+```
+
+#### Scenario C: Large-scale Retrospective Screening
+```
+Past CT scans stored in hospital PACS
+→ AI automatically reanalyzes (Batch Processing)
+→ Identifies previously missed suspicious findings
+→ Recommend follow-up testing for relevant patients
+```
+
+### Core Roles of AI
+
+1. **Subtle Feature Detection**
+   - Texture changes imperceptible to the human eye
+   - Pancreatic border irregularity
+   - Parenchymal attenuation heterogeneity
+   - Focal pancreatic duct dilation (<3mm)
+
+2. **Longitudinal Monitoring**
+   - Automatic comparison with patient's prior CTs
+   - Detection of very slow growth rates
+   - Differentiation between normal variation and pathologic change
+
+3. **Multi-hospital Domain Adaptation**
+   - Different CT equipment and protocols across hospitals
+   - Learning normal distributions for each institution
+   - Overcoming domain shift
+
+4. **Uncertainty Quantification**
+   - Stage 1 detection inevitably has high false positives
+   - Recommendations with confidence scores for surveillance
+   - Differentiate "immediate additional testing" vs "recheck in 3 months"
+
+---
+
+## 📌 Key Features
+
+- **Opportunistic Screening**: Automatic pancreas analysis in CTs performed for other purposes
+- **Anomaly Detection**: Detection of subtle abnormal patterns after learning normal pancreas
+- **Longitudinal Analysis**: Detection of progressive changes through time-series CT comparison
+- **Multi-hospital Adaptation**: Domain adaptation to overcome hospital/equipment differences
+- **Uncertainty Quantification**: Confidence-based recommendations for surveillance or immediate workup
+- **Full Modularity**: Segmentation, classification, and anomaly detection modules run independently
+
+---
+
+## 🔬 CT Imaging Optimization and Technical Approach
+
+### Pancreas-Dedicated CT Protocol (Ideal Case)
+
+To visualize Stage 1 pancreatic cancer, more sophisticated protocols than standard abdominal CT are needed:
+
+#### 1. Multi-phase Contrast Enhancement
+```
+Late Arterial Phase (Pancreatic Parenchymal Phase)
+  - Timing: 40-50 seconds
+  - Optimal visualization of pancreatic parenchyma
+  - Maximum contrast between small tumors and normal tissue
+
+Portal Venous Phase
+  - Timing: 70-80 seconds
+  - Evaluation of surrounding vessels
+  - Assessment of vascular invasion
+
+Delayed Phase (Optional)
+  - Timing: 3-5 minutes
+  - Detection of some hypovascular tumors
+```
+
+#### 2. Thin-slice Acquisition
+```
+Slice Thickness: 0.5-1mm (vs standard CT: 3-5mm)
+→ Reduced partial volume effect
+→ Improved small lesion detection
+→ Better 3D reconstruction quality
+```
+
+#### 3. High Resolution Settings
+```
+Matrix: 512x512 or higher
+Field of View: Focused on pancreas
+Reconstruction: Multiple algorithm combinations
+```
+
+### Reality: Must Work with Standard Abdominal CT
+
+**However, most CTs are NOT acquired this way:**
+- Single phase or simple dual-phase
+- 5mm slice thickness
+- Pancreas is not the primary target
+
+**Therefore, our AI must:**
+- ✅ **Work with suboptimal CT protocols**
+- ✅ **Be robust to various protocols**
+- ✅ **Learn different equipment/settings across hospitals**
+
+---
+
+## 🧠 Technical Approach: Anomaly Detection
+
+### Why Anomaly Detection?
+
+#### Problem: Lack of Cancer Data
+```
+Public Datasets (NIH Pancreas-CT):
+  - Normal pancreas: 82 cases ✓
+  - Pancreatic cancer: 0 cases ❌
+
+Real Clinical Data:
+  - Normal/benign conditions: Hundreds of thousands
+  - Stage 1-2 pancreatic cancer: Hundreds (very rare)
+```
+
+#### Solution: Perfect Learning of Normal
+```
+"If we learn perfectly what is normal,
+ we can identify what is not normal (anomaly)"
+```
+
+### Core Ideas
+
+#### 1. U-Net Based Autoencoder
+```python
+# Train only on normal pancreas
+Input: Normal pancreatic CT
+→ Encoder: Feature compression
+→ Decoder: Reconstruct original
+Output: Reconstructed CT
+
+Loss = MSE(Input, Output)
+```
+
+**After training on normal data:**
+- Normal pancreas → Perfect reconstruction (low error)
+- Pancreas with cancer → Reconstruction failure (high error)
+- **High error region = Anomaly = Suspicious area**
+
+#### 2. Weighted Reconstruction Loss
+```python
+# Higher weight on pancreatic region
+Loss = weighted_MSE(Input, Output, pancreas_mask)
+
+Pancreas region: weight = 10.0
+Background: weight = 1.0
+```
+
+**Rationale:**
+- To detect even small tumors (<1cm)
+- Focus on subtle changes within pancreas
+- Ignore background noise
+
+#### 3. Multi-scale Feature Analysis
+```
+Simultaneous analysis at multiple resolutions:
+- High resolution: Small tumors (<1cm)
+- Medium resolution: Texture patterns
+- Low resolution: Overall morphological changes
+```
+
+#### 4. Temporal Consistency (Future Plan)
+```
+Compare with patient's prior CTs:
+- t0: Normal (baseline)
+- t1: Subtle change (AI detects)
+- t2: Clear change (confirmed)
+
+→ Learn progressive change patterns
+→ Reduce false positives
+```
+
+### Expected Output Example
+
+```json
+{
+  "patient_id": "P001234",
+  "scan_date": "2025-10-15",
+  "anomaly_detected": true,
+  "anomaly_score": 0.73,
+  "recommendation": "Recommend pancreas-dedicated CT or MRI",
+  "confidence": "medium-high",
+  "region_of_interest": {
+    "location": "pancreatic body",
+    "size_estimate": "8-12mm",
+    "reconstruction_error": 0.089
+  },
+  "follow_up": {
+    "urgency": "non-urgent",
+    "suggested_interval": "3 months",
+    "reason": "subtle texture heterogeneity without definite mass"
+  }
+}
+```
+
+---
+
+## 🏗️ Project Structure
 
 ```
 pancreas_cancer_diagnosis/

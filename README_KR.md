@@ -1,14 +1,285 @@
-# 췌장암 진단 - End-to-End 파이프라인
+# 췌장암 조기 진단 AI - Stage 1 Detection System
 
-**5개의 독립적인 세그멘테이션 CNN**과 **앙상블 분류 CNN**을 사용한 모듈화되고 유연하며 재현 가능한 췌장암 진단 프레임워크입니다.
+**다른 목적으로 찍은 CT에서 췌장암을 조기에 발견하는 AI 시스템**
+
+정상 췌장의 미세한 변화를 감지하여 증상이 나타나기 전, Stage 1-2에서 췌장암을 발견하는 것을 목표로 합니다.
+
+---
+
+## 🏥 임상적 배경 (Clinical Background)
+
+### 왜 Stage 1 조기 발견이 중요한가?
+
+췌장암은 진단 시점의 병기(Stage)에 따라 생존율이 극적으로 달라집니다:
+
+| 병기 | 5년 생존율 | CT 발견 시 |
+|------|-----------|-----------|
+| **Stage 1** (T1N0M0, <2cm) | **~80%** | 거의 불가능 ❌ |
+| **Stage 2** (T2-3, 2-4cm) | ~30% | 매우 어려움 |
+| **Stage 3-4** (국소 진행/전이) | **<5%** | **대부분 여기서 발견** ✓ |
+
+**현실:** CT에서 췌장암이 발견될 때는 대부분 이미 Stage 3-4입니다.
+
+### CT에서 조기 발견이 어려운 이유
+
+1. **대비도(Contrast) 문제**
+   - 1-2cm 이하의 작은 종양은 정상 췌장 조직과 밀도 차이가 거의 없음
+   - 일반 복부 CT는 췌장에 최적화된 타이밍이 아님
+
+2. **증상의 부재**
+   - Stage 1-2: 증상이 거의 없음 → 검사 자체를 안 함
+   - **황달 증상**: 담관이 막혀야 나타남 → 이미 Stage 3-4
+
+3. **검진의 한계**
+   - 건강검진: 주로 복부 초음파 (췌장 관찰률 50-70%)
+   - 건강검진에서 CT를 찍는 경우: **<5%**
+   - CT는 주로 "증상이 있어서" 찍힌다 → 그때는 이미 늦음
+
+### 실제 CT가 찍히는 경우
+
+CT는 건강검진보다는 다음 상황에서 주로 찍힙니다:
+
+1. **증상으로 인한 외래/응급실 방문**
+   - 복통, 소화불량, 체중 감소, 황달
+   - 다른 장기(간, 담낭, 위장) 평가 목적
+   - 췌장은 부수적으로만 관찰됨
+
+2. **타 질환 정기 추적 관찰**
+   - 간질환, 신장질환, 대장암 수술 후 추적
+   - 매년 정기 CT를 찍지만 췌장은 세밀히 안 봄
+
+3. **외상/수술 전 평가**
+   - 췌장은 주 관심사가 아님
+
+**💡 핵심 인사이트:** 한국에서만 연간 **500만+ 복부 CT**가 찍히고 있지만, 대부분 췌장은 "대충" 봅니다. 이것이 바로 AI의 기회입니다.
+
+---
+
+## 🎯 프로젝트의 목표와 가치
+
+### Opportunistic Pancreatic Cancer Screening
+
+**"다른 목적으로 찍은 CT에서 췌장도 자동으로 정밀 분석"**
+
+#### 시나리오 A: 증상 평가 중 우연한 발견
+```
+환자: "소화가 안 되고 배가 더부룩해요"
+의사: 복부 CT 처방 (위/담낭 평가 목적)
+방사선과: "특이 소견 없음" (췌장은 간단히만 봄)
+
+→ AI 적용 ⭐
+   "췌장 body 부위에 subtle texture heterogeneity 감지"
+   "Confidence: 68%, 췌장 전용 CT 또는 MRI 권장"
+
+→ 추가 정밀 검사 → Stage 1 (1.5cm) 발견
+→ 수술 가능, 완치 기회
+```
+
+#### 시나리오 B: 정기 추적 관찰 중 조기 발견
+```
+환자: 간경화 추적 관찰 (6개월마다 CT)
+
+→ AI의 Longitudinal Analysis ⭐
+   "3회 연속 CT 비교 분석"
+   "췌장 두부(head) 영역에서 progressive texture change"
+   "크기 변화는 없지만 attenuation pattern 변화 감지"
+
+→ Dedicated pancreas protocol CT
+→ Stage 1 발견 (증상 나타나기 전)
+```
+
+#### 시나리오 C: 대규모 Retrospective Screening
+```
+병원 PACS에 저장된 과거 CT 스캔들
+→ AI가 자동으로 재분석 (Batch Processing)
+→ 놓쳤던 의심 소견 발견
+→ 해당 환자에게 추적 검사 권유
+```
+
+### AI의 핵심 역할
+
+1. **Subtle Feature Detection**
+   - 사람 눈으로는 구분하기 어려운 미세한 texture 변화
+   - 췌장 경계의 irregularity
+   - Parenchymal attenuation의 heterogeneity
+   - 췌관의 focal dilation (<3mm)
+
+2. **Longitudinal Monitoring**
+   - 동일 환자의 과거 CT와 자동 비교
+   - 매우 느린 growth rate도 감지
+   - 정상 변이(normal variation)와 pathologic change 구분
+
+3. **Multi-hospital Domain Adaptation**
+   - 병원마다 다른 CT 장비, 프로토콜
+   - 각 기관의 정상 분포를 학습
+   - Domain shift 극복
+
+4. **Uncertainty Quantification**
+   - Stage 1은 false positive가 높을 수밖에 없음
+   - Confidence score와 함께 추적 관찰 권장 리포트
+   - "즉시 추가 검사" vs "3개월 후 재검" 구분
+
+---
 
 ## 📌 주요 특징
 
-- **완전한 모듈화**: 각 모듈(세그멘테이션, 분류, 파이프라인)이 독립적으로 실행 가능
-- **높은 유연성**: 모델 교체, 새로운 아키텍처 추가, 워크플로우 수정이 쉬움
-- **쉬운 유지보수**: 명확한 관심사 분리와 잘 정의된 인터페이스
-- **재현성 보장**: 설정 추적 및 재현 가능한 결과를 위한 내장 도구
-- **독립 실행**: 각 컴포넌트를 개별적으로 학습하고 테스트하거나 전체 파이프라인 사용 가능
+- **Opportunistic Screening**: 다른 목적으로 찍은 CT에서 췌장 자동 분석
+- **Anomaly Detection**: 정상 췌장 학습 후 미세한 이상 패턴 감지
+- **Longitudinal Analysis**: 시계열 CT 비교를 통한 progressive change 탐지
+- **Multi-hospital Adaptation**: 병원/장비 간 차이를 극복하는 domain adaptation
+- **Uncertainty Quantification**: 신뢰도 기반 추적 관찰 또는 즉시 정밀 검사 권장
+- **완전한 모듈화**: 세그멘테이션, 분류, 이상 탐지 모듈이 독립적으로 실행 가능
+
+---
+
+## 🔬 CT Imaging 최적화 및 기술적 접근
+
+### Pancreas-Dedicated CT Protocol (이상적인 경우)
+
+Stage 1 췌장암을 보려면 일반 복부 CT보다 더 정밀한 프로토콜이 필요합니다:
+
+#### 1. Multi-phase Contrast Enhancement
+```
+Late Arterial Phase (Pancreatic Parenchymal Phase)
+  - Timing: 40-50초
+  - 췌장 실질이 가장 잘 보이는 시점
+  - 작은 종양과 정상 조직의 대비 최대화
+
+Portal Venous Phase
+  - Timing: 70-80초
+  - 주변 혈관 평가
+  - 혈관 침범 여부 확인
+
+Delayed Phase (Optional)
+  - Timing: 3-5분
+  - 일부 hypovascular tumor 감지
+```
+
+#### 2. Thin-slice Acquisition
+```
+Slice Thickness: 0.5-1mm (일반 CT: 3-5mm)
+→ Partial volume effect 감소
+→ 작은 병변 감지율 향상
+→ 3D reconstruction 품질 향상
+```
+
+#### 3. High Resolution Settings
+```
+Matrix: 512x512 이상
+Field of View: 췌장에 집중
+Reconstruction: 여러 알고리즘 조합
+```
+
+### 현실: 일반 복부 CT에서 작동해야 함
+
+**하지만 대부분의 CT는 이렇게 찍히지 않습니다:**
+- Single phase 또는 간단한 dual-phase
+- 5mm slice thickness
+- 췌장이 주 목적이 아님
+
+**따라서 우리 AI는:**
+- ✅ **최적이 아닌 CT에서도 작동**해야 합니다
+- ✅ **다양한 프로토콜에 robust**해야 합니다
+- ✅ **병원마다 다른 장비/설정을 학습**해야 합니다
+
+---
+
+## 🧠 기술적 접근법: Anomaly Detection
+
+### 왜 Anomaly Detection인가?
+
+#### 문제: 암 데이터 부족
+```
+공개 데이터셋 (NIH Pancreas-CT):
+  - 정상 췌장: 82례 ✓
+  - 췌장암: 0례 ❌
+
+실제 임상 데이터:
+  - 정상/양성 질환: 수십만 건
+  - Stage 1-2 췌장암: 수백 건 (매우 희귀)
+```
+
+#### 해결책: 정상을 완벽히 학습
+```
+"정상이 어떤 것인지 완벽히 학습하면,
+ 정상이 아닌 것(anomaly)을 찾을 수 있다"
+```
+
+### 핵심 아이디어
+
+#### 1. U-Net 기반 Autoencoder
+```python
+# 정상 췌장만으로 학습
+Input: 정상 췌장 CT
+→ Encoder: 특징 압축
+→ Decoder: 원본 복원
+Output: 복원된 CT
+
+Loss = MSE(Input, Output)
+```
+
+**정상 데이터 학습 후:**
+- 정상 pancreas → 완벽하게 복원 (low error)
+- 암이 있는 pancreas → 복원 실패 (high error)
+- **High error region = Anomaly = 의심 부위**
+
+#### 2. Weighted Reconstruction Loss
+```python
+# 췌장 영역에 더 높은 가중치
+Loss = weighted_MSE(Input, Output, pancreas_mask)
+
+pancreas 영역: weight = 10.0
+background: weight = 1.0
+```
+
+**이유:**
+- 작은 종양(1cm 미만)도 놓치지 않기 위해
+- 췌장 내부의 subtle change에 집중
+- Background noise는 무시
+
+#### 3. Multi-scale Feature Analysis
+```
+여러 해상도에서 동시에 분석:
+- High resolution: 작은 종양 (<1cm)
+- Medium resolution: texture pattern
+- Low resolution: 전체적인 형태 변화
+```
+
+#### 4. Temporal Consistency (향후 계획)
+```
+동일 환자의 과거 CT와 비교:
+- t0: 정상 (baseline)
+- t1: 미세한 변화 (AI 감지)
+- t2: 명확한 변화 (확진)
+
+→ Progressive change pattern 학습
+→ False positive 감소
+```
+
+### Expected Output Example
+
+```json
+{
+  "patient_id": "P001234",
+  "scan_date": "2025-10-15",
+  "anomaly_detected": true,
+  "anomaly_score": 0.73,
+  "recommendation": "췌장 전용 CT 또는 MRI 권장",
+  "confidence": "medium-high",
+  "region_of_interest": {
+    "location": "pancreatic body",
+    "size_estimate": "8-12mm",
+    "reconstruction_error": 0.089
+  },
+  "follow_up": {
+    "urgency": "non-urgent",
+    "suggested_interval": "3 months",
+    "reason": "subtle texture heterogeneity without definite mass"
+  }
+}
+```
+
+---
 
 ## 🏗️ 프로젝트 구조
 
