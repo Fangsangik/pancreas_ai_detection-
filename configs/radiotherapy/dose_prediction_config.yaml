@@ -1,0 +1,75 @@
+# Dose Prediction 모델 설정
+# ============================
+# 3D 선량 분포 예측
+
+model:
+  name: "DosePredictionModel"
+  in_channels: 4  # CT(1) + tumor(1) + duodenum(1) + stomach(1)
+  base_channels: 32
+  out_channels: 1  # Dose map
+
+data:
+  data_root: "data/radiotherapy"
+  batch_size: 1  # Dose prediction은 메모리 많이 사용
+  num_workers: 4
+  spatial_size: [128, 128, 128]  # D, H, W (더 큰 크기)
+  num_oars: 2  # duodenum, stomach
+
+  # Manifest 파일 경로
+  manifests:
+    train: "data/radiotherapy/manifests/dose_train.json"
+    val: "data/radiotherapy/manifests/dose_val.json"
+    test: "data/radiotherapy/manifests/dose_test.json"
+
+training:
+  max_epochs: 150
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+
+  # Early stopping
+  patience: 30
+  monitor: "val/total_loss"
+  mode: "min"
+
+  # Validation
+  val_check_interval: 1.0
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+
+  # Loss weights
+  loss_weights:
+    mse: 1.0
+    gradient: 0.1  # Smoothness
+    dvh: 0.5  # OAR constraints
+
+  # DVH constraints (Gy)
+  dvh_constraints:
+    duodenum:
+      mean: 30.0  # Mean dose < 30 Gy
+      max: 45.0   # Max dose < 45 Gy
+    stomach:
+      mean: 35.0
+      max: 50.0
+
+  # Optimizer
+  optimizer: "AdamW"
+  scheduler: "ReduceLROnPlateau"
+  scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 15
+
+hardware:
+  gpus: 1
+  precision: "32"
+  seed: 42
+
+output:
+  output_dir: "outputs/dose_prediction"
+  save_top_k: 3
+  checkpoint_filename: "dose-{epoch:02d}-{val/total_loss:.4f}"
+
+logging:
+  tensorboard: true
+  log_every_n_steps: 10

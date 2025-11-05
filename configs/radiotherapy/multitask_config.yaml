@@ -1,0 +1,67 @@
+# Multi-Task Learning 모델 설정
+# =====================================
+# Survival + Toxicity + Response 동시 예측
+
+model:
+  name: "MultiTaskRadiotherapyModel"
+  in_channels: 1  # CT scan
+  base_channels: 32
+  num_blocks: 4
+  clinical_features: 10  # age, gender, stage, ca19_9, tumor_size, location, kps, diabetes, prior_surgery, chemotherapy
+  num_toxicity_classes: 4  # Grade 0, 1, 2, 3+
+
+  # Task weights (loss balancing)
+  task_weights:
+    survival: 1.0
+    toxicity: 1.0
+    response: 1.0
+
+data:
+  data_root: "data/radiotherapy"
+  batch_size: 2
+  num_workers: 4
+  spatial_size: [96, 96, 96]  # D, H, W
+
+  # Manifest 파일 경로
+  manifests:
+    train: "data/radiotherapy/manifests/multitask_train.json"
+    val: "data/radiotherapy/manifests/multitask_val.json"
+    test: "data/radiotherapy/manifests/multitask_test.json"
+
+training:
+  max_epochs: 100
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+
+  # Early stopping
+  patience: 20
+  monitor: "val/total_loss"
+  mode: "min"
+
+  # Validation
+  val_check_interval: 1.0  # epoch 단위
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+
+  # Optimizer
+  optimizer: "AdamW"
+  scheduler: "ReduceLROnPlateau"
+  scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 10
+
+hardware:
+  gpus: 1
+  precision: "32"  # "16", "32", "bf16"
+  seed: 42
+
+output:
+  output_dir: "outputs/multitask"
+  save_top_k: 3
+  checkpoint_filename: "multitask-{epoch:02d}-{val/total_loss:.4f}"
+
+logging:
+  tensorboard: true
+  log_every_n_steps: 10

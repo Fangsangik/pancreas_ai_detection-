@@ -1,0 +1,128 @@
+# End-to-End Radiotherapy Pipeline 설정
+# ========================================
+# 전체 워크플로우 통합 실행
+
+pipeline:
+  name: "RadiotherapyPipeline"
+  version: "1.0.0"
+  description: "Pancreatic cancer radiotherapy planning pipeline"
+
+# 모델 체크포인트
+checkpoints:
+  oar_segmentation: "outputs/oar_segmentation/checkpoints/best.ckpt"
+  dose_prediction: "outputs/dose_prediction/checkpoints/best.ckpt"
+  multitask: "outputs/multitask/checkpoints/best.ckpt"
+
+# 파이프라인 단계
+stages:
+  1_oar_segmentation:
+    enabled: true
+    model: "OARSegmentationModel"
+    output_name: "oar_segmentation.nii.gz"
+    spatial_size: [128, 128, 128]
+
+  2_dose_prediction:
+    enabled: true
+    model: "DosePredictionModel"
+    output_name: "dose_map.nii.gz"
+    spatial_size: [128, 128, 128]
+    prescription_dose: 40.0  # Default (Gy)
+    num_oars: 2  # duodenum, stomach
+
+  3_multitask_prediction:
+    enabled: true
+    model: "MultiTaskRadiotherapyModel"
+    output_name: "outcomes.json"
+    spatial_size: [96, 96, 96]
+
+# 하드웨어
+hardware:
+  device: "cuda"  # "cuda" or "cpu"
+  gpu_id: 0
+
+# 입력 데이터 형식
+input_format:
+  ct_scan:
+    format: "NIfTI"  # .nii.gz
+    spacing: [1.0, 1.0, 1.0]  # mm (원본)
+    orientation: "RAS"
+    intensity_range: [-200, 200]  # HU
+
+  tumor_mask:
+    format: "NIfTI"
+    type: "binary"  # 0/1
+
+  clinical_features:
+    required:
+      - age  # years
+      - gender  # 0=female, 1=male
+      - stage  # 1-4
+    optional:
+      - ca19_9  # U/mL
+      - tumor_size  # cm
+      - location  # 0=head, 1=body, 2=tail
+      - kps  # Karnofsky Performance Status (0-100)
+      - diabetes  # 0=no, 1=yes
+      - prior_surgery  # 0=no, 1=yes
+      - chemotherapy  # 0=no, 1=yes
+
+# 출력 형식
+output_format:
+  oar_segmentation:
+    format: "NIfTI"
+    dtype: "uint8"
+    class_values: [0, 1, 2, 3, 4, 5, 6]
+
+  dose_map:
+    format: "NIfTI"
+    dtype: "float32"
+    unit: "Gy"
+
+  outcomes:
+    format: "JSON"
+    fields:
+      - survival_time  # months
+      - survival_uncertainty  # log variance
+      - toxicity_grade  # 0-3+
+      - toxicity_probs  # [p0, p1, p2, p3]
+      - response  # boolean
+      - response_prob  # float
+
+# 품질 관리
+quality_control:
+  # OAR segmentation validation
+  oar_validation:
+    min_volume_cc:  # 최소 볼륨 (cc)
+      duodenum: 10
+      stomach: 50
+      liver: 800
+      kidney: 100
+
+  # Dose map validation
+  dose_validation:
+    max_dose_threshold: 60.0  # Gy
+    min_dose_threshold: 0.0
+
+  # Outcome validation
+  outcome_validation:
+    survival_range: [0, 60]  # months
+    toxicity_grade_range: [0, 3]
+
+# 로깅
+logging:
+  level: "INFO"
+  output_dir: "outputs/pipeline/logs"
+  save_intermediate: true  # 중간 결과 저장 여부
+
+# 예제 실행 명령어
+example_usage: |
+  python -m pancreas_cancer_diagnosis.radiotherapy.pipeline \
+    --oar_checkpoint outputs/oar_segmentation/checkpoints/best.ckpt \
+    --dose_checkpoint outputs/dose_prediction/checkpoints/best.ckpt \
+    --multitask_checkpoint outputs/multitask/checkpoints/best.ckpt \
+    --patient_id PATIENT001 \
+    --ct_path data/patient001_ct.nii.gz \
+    --tumor_mask_path data/patient001_tumor.nii.gz \
+    --clinical_json '{"age": 65, "gender": 1, "stage": 2}' \
+    --prescription_dose 40.0 \
+    --output_dir outputs/pipeline/PATIENT001

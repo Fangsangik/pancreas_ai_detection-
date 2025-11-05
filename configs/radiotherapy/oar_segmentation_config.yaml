@@ -1,0 +1,87 @@
+# OAR Segmentation 모델 설정
+# ==============================
+# Organs at Risk 자동 세그멘테이션
+
+model:
+  name: "OARSegmentationModel"
+  in_channels: 1  # CT scan
+  num_classes: 7  # Background + 6 OARs
+  base_channels: 32
+  deep_supervision: true
+
+  # OAR 클래스 (참고용)
+  oar_classes:
+    0: "background"
+    1: "duodenum"        # 십이지장 (가장 중요!)
+    2: "stomach"         # 위
+    3: "small_intestine" # 소장
+    4: "liver"           # 간
+    5: "left_kidney"     # 왼쪽 신장
+    6: "right_kidney"    # 오른쪽 신장
+
+data:
+  data_root: "data/radiotherapy"
+  batch_size: 2
+  num_workers: 4
+  spatial_size: [128, 128, 128]  # D, H, W
+
+  # Manifest 파일 경로
+  manifests:
+    train: "data/radiotherapy/manifests/oar_train.json"
+    val: "data/radiotherapy/manifests/oar_val.json"
+    test: "data/radiotherapy/manifests/oar_test.json"
+
+training:
+  max_epochs: 200
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+
+  # Early stopping
+  patience: 40
+  monitor: "val/dice_mean"
+  mode: "max"  # Dice는 높을수록 좋음
+
+  # Validation
+  val_check_interval: 1.0
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+
+  # Loss
+  loss_type: "Dice+CE"  # Dice loss + Cross-entropy
+  loss_weights:
+    dice: 0.5
+    ce: 0.5
+    # Deep supervision weights
+    ds_weight_2: 0.5  # Intermediate output 2
+    ds_weight_3: 0.25  # Intermediate output 3
+
+  # Optimizer
+  optimizer: "AdamW"
+  scheduler: "ReduceLROnPlateau"
+  scheduler_params:
+    mode: "max"  # Dice 기준
+    factor: 0.5
+    patience: 20
+
+hardware:
+  gpus: 1
+  precision: "32"
+  seed: 42
+
+output:
+  output_dir: "outputs/oar_segmentation"
+  save_top_k: 3
+  checkpoint_filename: "oar-{epoch:02d}-{val/dice_mean:.4f}"
+
+logging:
+  tensorboard: true
+  log_every_n_steps: 10
+
+# Evaluation 메트릭
+evaluation:
+  metrics:
+    - "dice_per_organ"
+    - "dice_mean"
+    - "surface_distance"  # Optional
+    - "hausdorff_distance"  # Optional
