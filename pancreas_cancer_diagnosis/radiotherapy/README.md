@@ -51,10 +51,6 @@
 
 **아키텍처**: nnU-Net inspired 3D U-Net with deep supervision
 
-**성능 목표**:
-- Duodenum Dice > 0.80
-- Other organs Dice > 0.85
-
 ### 2. Dose Prediction
 
 **목적**: CT + Tumor + OAR 정보를 기반으로 최적 3D 선량 분포 예측
@@ -435,37 +431,6 @@ outputs/pipeline/PATIENT001/
 ├── PATIENT001_dose_map.nii.gz          # Dose distribution
 └── PATIENT001_outcomes.json            # Survival, toxicity, response
 ```
-
----
-
-## 성능 벤치마크
-
-### OAR Segmentation
-
-| Organ | Dice Score | HD95 (mm) |
-|-------|------------|-----------|
-| Duodenum | 0.82 ± 0.05 | 3.2 ± 1.1 |
-| Stomach | 0.88 ± 0.04 | 2.5 ± 0.8 |
-| Small intestine | 0.85 ± 0.06 | 3.8 ± 1.5 |
-| Liver | 0.94 ± 0.02 | 1.8 ± 0.5 |
-| Left kidney | 0.91 ± 0.03 | 2.1 ± 0.7 |
-| Right kidney | 0.91 ± 0.03 | 2.1 ± 0.6 |
-
-### Dose Prediction
-
-- **MAE**: 2.3 ± 0.8 Gy
-- **Max dose error**: 3.5 ± 1.2 Gy
-- **DVH constraint satisfaction**: 92%
-
-### Multi-Task Prediction
-
-| Task | Metric | Performance |
-|------|--------|-------------|
-| Survival | MAE | 4.2 ± 2.1 months |
-| Survival | C-index | 0.71 ± 0.05 |
-| Toxicity | Accuracy | 68% ± 4% |
-| Toxicity | Weighted F1 | 0.65 ± 0.04 |
-| Response | AUC-ROC | 0.74 ± 0.06 |
 
 ---
 

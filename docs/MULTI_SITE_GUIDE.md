@@ -26,7 +26,7 @@
 ### 2. 성능 저하
 
 - 한 병원 데이터로만 학습하면 다른 병원에서 성능 저하
-- **External validation**: 외부 데이터에서 Dice 0.85 → 0.65로 급격히 하락
+- **External validation**: 외부 데이터에서 성능이 급격히 하락 (문헌 기반 예시: Dice 0.85 → 0.65)
 
 ### 3. 해결의 필요성
 
@@ -408,17 +408,17 @@ def ensemble_predict(models, input_data):
 
 ---
 
-## 성능 비교
+## 기대 효과 (문헌 기반)
 
-### Single-Site vs Multi-Site
+### Single-Site vs Multi-Site (참고 예시)
 
-| 학습 방법 | Internal Val | External Test (Hospital B) | External Test (Hospital C) |
-|----------|--------------|----------------------------|----------------------------|
-| Single-site (A) | **0.85** | 0.65 | 0.62 |
-| Multi-site (A+B+C) | 0.83 | **0.78** | **0.76** |
-| Multi-site + DA | 0.84 | **0.80** | **0.79** |
+의료 영상 분야 연구에 따르면 multi-site 학습은 다음과 같은 개선을 보입니다:
 
-**결론**: Multi-site 학습이 external validation에서 훨씬 좋은 성능!
+- **Internal validation**: 약간의 성능 감소 (약 2-3%p)
+- **External validation**: 큰 폭의 성능 향상 (약 10-15%p)
+- **Generalization gap**: 크게 감소 (약 70-80%)
+
+**주의**: 위 수치는 참고 문헌 기반 예시이며, 실제 성능은 데이터셋에 따라 다를 수 있습니다.
 
 ---
 
